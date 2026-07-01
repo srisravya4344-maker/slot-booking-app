@@ -6,14 +6,21 @@ app = Flask(__name__)
 app.secret_key = "slotbooking123"
 
 # Database Configuration
-DATABASE_URL = os.environ.get("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
+    # Railway may provide mysql:// instead of mysql+pymysql://
+    if DATABASE_URL.startswith("mysql://"):
+        DATABASE_URL = DATABASE_URL.replace(
+            "mysql://", "mysql+pymysql://", 1
+        )
     app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 else:
     app.config["SQLALCHEMY_DATABASE_URI"] = (
         "mysql+pymysql://root:QmfXCfFPNaSlQWrBeNVKYfcrQGYwfNQS@kodama.proxy.rlwy.net:55146/railway"
     )
+
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "connect_args": {
@@ -21,16 +28,11 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     }
 }
 
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-# Initialize Database
 db.init_app(app)
 
-# Create Tables
 with app.app_context():
     db.create_all()
 
-# Available Slots
 SLOTS = [
     "09:00 AM",
     "10:00 AM",
@@ -42,16 +44,17 @@ SLOTS = [
     "04:00 PM"
 ]
 
-# Home Page
+
 @app.route("/")
 def index():
-    booked_slots = [booking.slot_time for booking in Booking.query.all()]
+    booked_slots = [b.slot_time for b in Booking.query.all()]
     available_slots = [slot for slot in SLOTS if slot not in booked_slots]
     return render_template("index.html", slots=available_slots)
 
-# Book Slot
+
 @app.route("/book/<slot>", methods=["GET", "POST"])
 def book(slot):
+
     if request.method == "POST":
 
         existing = Booking.query.filter_by(slot_time=slot).first()
@@ -64,7 +67,7 @@ def book(slot):
             name=request.form["name"],
             email=request.form["email"],
             phone=request.form["phone"],
-            slot_time=slot
+            slot_time=slot,
         )
 
         db.session.add(booking)
@@ -75,11 +78,12 @@ def book(slot):
 
     return render_template("book.html", slot=slot)
 
-# View Bookings
+
 @app.route("/bookings")
 def bookings():
     bookings = Booking.query.order_by(Booking.booking_date.desc()).all()
     return render_template("bookings.html", bookings=bookings)
 
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
