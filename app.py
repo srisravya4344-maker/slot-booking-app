@@ -22,12 +22,6 @@ else:
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "connect_args": {
-        "ssl": {}
-    }
-}
-
 db.init_app(app)
 
 with app.app_context():
